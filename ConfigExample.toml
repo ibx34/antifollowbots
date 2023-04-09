@@ -1,0 +1,5 @@
+database = ""
+redis = "redis://localhost:6379"
+github_id = ""
+github_secret = ""
+callback = ""

@@ -1,3 +1,4 @@
+pub mod config;
 pub mod db;
 pub mod models;
 pub mod request_models;
@@ -8,6 +9,7 @@ use anyhow::Result;
 use std::net::SocketAddr;
 
 use crate::{
+    config::CONFIG,
     db::Database,
     routes::github::{github_oauth_callback, github_oauth_redirect},
 };
@@ -27,8 +29,9 @@ async fn main() -> Result<()> {
         .pretty()
         .init();
 
-    let redis = Arc::new(redis::Client::open("redis://localhost:6379")?);
-    let database = Database::new("".to_string()).await?;
+    let config = CONFIG.clone();
+    let redis = Arc::new(redis::Client::open(config.redis)?);
+    let database = Database::new(config.database).await?;
     database.migrate().await?;
 
     let app_state = AppState { database, redis };

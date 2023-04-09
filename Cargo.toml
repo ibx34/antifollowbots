@@ -34,7 +34,7 @@ sqlx = { version = "0.6.2", features = [
     "ipnetwork",
     "decimal",
 ] }
-chrono = { version = "0.4.19", features = ["serde"] }
+chrono = { version = "0.4.24", features = ["serde", "clock"] }
 ring = "0.16.20"
 base64 = "0.13.1"
 hex = "0.4.3"

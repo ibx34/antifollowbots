@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    models::{GithubUser, GoodUser},
+    config::CONFIG,
+    models::{GithubUser, GoodUser, Session},
     request_models::{GithubAccessToken, GithubOAuthCallback},
     AppState,
 };
@@ -12,6 +13,7 @@ use axum::{
     response::IntoResponse,
     Form,
 };
+use chrono::{Duration, NaiveDateTime, Utc};
 use ring::rand::SecureRandom;
 use serde_json::json;
 
@@ -24,11 +26,12 @@ pub async fn github_oauth_callback(
         .build()
         .unwrap();
 
+    let config = CONFIG.clone();
     let mut access_token_body = HashMap::new();
-    access_token_body.insert("client_id", "");
-    access_token_body.insert("client_secret", "");
+    access_token_body.insert("client_id", &config.github_id);
+    access_token_body.insert("client_secret", &config.github_secret);
     access_token_body.insert("code", &query.code);
-    access_token_body.insert("redirect_uri", "https://api.yiff.day/oauth/callback");
+    access_token_body.insert("redirect_uri", &config.callback);
 
     let access_token_request = request_client
         .post("https://github.com/login/oauth/access_token")
@@ -106,11 +109,33 @@ pub async fn github_oauth_callback(
         }
     };
 
-    println!("{:?}", user);
+    // check if they have a session already
+    let Ok(session) = Session::create(app, user.id, true).await else {
+        return (
+            StatusCode::TEMPORARY_REDIRECT,
+            [(header::LOCATION, "https://followbots.yiff.day/error?err='Error creating session.'")],
+            json!({
+                "msg": "Error while creating session."
+            }).to_string(),
+        )
+            .into_response();
+    };
+
+    let now = Utc::now() + Duration::weeks(1);
 
     return (
         StatusCode::TEMPORARY_REDIRECT,
-        [(header::LOCATION, "https://followbots.yiff.day")],
+        [
+            (header::LOCATION, "https://followbots.yiff.day"),
+            (
+                header::SET_COOKIE,
+                &format!(
+                    "_dogma_session={}; Expires={}; Secure; HttpOnly; SameSite=Lax",
+                    session.key,
+                    now.to_string()
+                ),
+            ),
+        ],
         json!({}).to_string(),
     )
         .into_response();
@@ -133,7 +158,7 @@ pub async fn github_oauth_redirect(State(_app): State<AppState>) -> impl IntoRes
     return (
         StatusCode::TEMPORARY_REDIRECT,
         // Even though we ask them to login with Github they may need to provide an access token generated on Github to allow us to block accounts on their behalf
-        [(header::LOCATION, &format!("https://github.com/login/oauth/authorize?client_id=7b5f39cda0537bf2bd03&redirect_uri=https://api.yiff.day/oauth/callback&scope=read:user%20user:follow&state={}", hex::encode(state)))],
+        [(header::LOCATION, &format!("https://github.com/login/oauth/authorize?client_id={}&redirect_uri=https://api.yiff.day/oauth/callback&scope=read:user%20user:follow&state={}", CONFIG.github_id, hex::encode(state)))],
         json!({}).to_string(),
     )
         .into_response();

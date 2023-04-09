@@ -2,6 +2,9 @@ use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
+/// src/sessions.rs
+pub use crate::sessions::Session;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GithubUser {
     pub login: String,
